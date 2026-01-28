@@ -1,0 +1,125 @@
+const express = require("express");
+const bcrypt = require("bcrypt");
+const crypto = require("crypto");
+
+const Account = require("../models/Account");
+const Transaction = require("../models/Transaction");
+const User = require("../models/User");
+
+const auth = require("../middleware/auth");
+const access = require("../middleware/accessControl");
+
+const {
+  encryptAESWithKey,
+  encryptAESKey,
+  signData
+} = require("../utils/encryption");
+
+const { encodeBase64 } = require("../utils/encoding");
+
+const router = express.Router();
+
+// View balance
+router.get("/balance", auth, access("VIEW"), async (req, res) => {
+  const account = await Account.findOne({ userId: req.user.id });
+  res.json(account);
+});
+
+// Transfer money (WITH TRANSACTION PIN + HYBRID ENCRYPTION)
+router.post("/transfer", auth, access("TRANSFER"), async (req, res) => {
+  const { to, amount, txnPin } = req.body;
+
+  // 🔐 Verify Transaction PIN
+  const user = await User.findById(req.user.id);
+  const pinValid = await bcrypt.compare(txnPin, user.txnPin);
+  if (!pinValid) {
+    return res.status(401).send("Invalid Transaction PIN");
+  }
+
+  // 1️⃣ Get sender & receiver accounts
+  const senderAccount = await Account.findOne({ userId: req.user.id });
+  const receiverAccount = await Account.findOne({ userId: to });
+
+
+
+  if (!senderAccount || !receiverAccount) {
+    return res.status(404).send("Account not found");
+  }
+
+  // Check if sender account is frozen
+if (senderAccount.isFrozen) {
+  return res.status(403).send("Your account is frozen. Contact bank admin.");
+}
+
+// Check if receiver account is frozen
+if (receiverAccount.isFrozen) {
+  return res.status(403).send("Receiver account is frozen.");
+}
+
+
+  // 2️⃣ Check balance
+  if (senderAccount.balance < amount) {
+    return res.status(400).send("Insufficient balance");
+  }
+
+  // 3️⃣ Create transaction payload
+  const data = JSON.stringify({
+    from: req.user.id,
+    to,
+    amount
+  });
+
+  // 🔑 4️⃣ Generate AES key PER TRANSACTION
+  const aesKey = crypto.randomBytes(32);
+
+  // 🔐 5️⃣ Encrypt data using AES
+  const encryptedData = encryptAESWithKey(data, aesKey);
+  const encodedData = encodeBase64(encryptedData);
+
+  // 🔐 6️⃣ Encrypt AES key using RSA
+  const encryptedAESKey = encryptAESKey(aesKey);
+
+  // ✍️ 7️⃣ Digital signature
+  const signature = signData(data);
+
+  // 💾 8️⃣ Save transaction
+  await Transaction.create({
+    from: req.user.id,
+    to,
+    amount,
+    encryptedData: encodedData,
+    encryptedAESKey,
+    signature,
+    status: "SUCCESS"
+  });
+
+  // 💰 9️⃣ Update balances
+  senderAccount.balance -= amount;
+  receiverAccount.balance += amount;
+
+  await senderAccount.save();
+  await receiverAccount.save();
+
+  res.send("Transaction successful and balance updated securely");
+});
+
+// View user's own transaction history
+router.get("/history", auth, async (req, res) => {
+  const userId = req.user.id;
+
+  const transactions = await Transaction.find({
+    $or: [{ from: userId }, { to: userId }]
+  }).sort({ createdAt: -1 });
+
+  const result = transactions.map(tx => ({
+    id: tx._id,
+    type: tx.from.toString() === userId ? "DEBIT" : "CREDIT",
+    amount: tx.amount,
+    date: tx.createdAt,
+    status: tx.status
+  }));
+
+  res.json(result);
+});
+
+module.exports = router;
