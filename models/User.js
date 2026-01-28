@@ -9,7 +9,9 @@ const userSchema = new mongoose.Schema({
     enum: ["CUSTOMER", "ADMIN", "AUDITOR"],
     default: "CUSTOMER"
   },
-  otp: String
+  otp: String,
+  publicKey: String,    // RSA public key
+  privateKey: String
 });
 
 module.exports = mongoose.model("User", userSchema);

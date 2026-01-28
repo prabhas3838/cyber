@@ -10,6 +10,7 @@ connectDB();
 app.use("/auth", require("./routes/auth"));
 app.use("/bank", require("./routes/bank"));
 app.use("/admin", require("./routes/admin"));
+app.use("/secure",require("./routes/messages"))
 
 
 app.listen(process.env.PORT, () =>

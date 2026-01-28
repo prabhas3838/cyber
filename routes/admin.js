@@ -3,6 +3,7 @@ const auth = require("../middleware/auth");
 const access = require("../middleware/accessControl");
 const Transaction = require("../models/Transaction");
 const Account = require("../models/Account");
+const User=require("../models/User")
 
 
 const {
@@ -148,6 +149,34 @@ router.post(
     res.send("Transaction rejected");
   }
 );
+
+
+const Message = require("../models/Message");
+const { encryptMessage } = require("../utils/messageCrypto");
+
+router.post(
+  "/notify/:userId",
+  auth,
+  access("LOGS"), // ADMIN
+  async (req, res) => {
+
+    const user = await User.findById(req.params.userId);
+    if (!user) return res.status(404).send("User not found");
+
+    const encryptedMsg = encryptMessage(
+      req.body.message,
+      user.publicKey
+    );
+
+    await Message.create({
+      userId: user._id,
+      encryptedMessage: encryptedMsg
+    });
+
+    res.send("Secure notification sent");
+  }
+);
+
 
 
 

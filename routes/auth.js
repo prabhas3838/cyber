@@ -4,6 +4,7 @@ const jwt = require("jsonwebtoken");
 const User = require("../models/User");
 const Account = require("../models/Account");
 const { generateOTP } = require("../utils/otp");
+const crypto = require("crypto");
 
 const router = express.Router();
 
@@ -12,11 +13,17 @@ router.post("/register", async (req, res) => {
   const hash = await bcrypt.hash(req.body.password, 10);
   const hashedPin = await bcrypt.hash(req.body.txnPin, 10);
 
+  const { publicKey, privateKey } = crypto.generateKeyPairSync("rsa", {
+    modulusLength: 2048
+  });
+
   const user = await User.create({
     username: req.body.username,
     password: hash,
     role: req.body.role || "CUSTOMER",
-    txnPin: hashedPin
+    txnPin: hashedPin,
+    publicKey: publicKey.export({ type: "pkcs1", format: "pem" }),
+    privateKey: privateKey.export({ type: "pkcs1", format: "pem" })
   });
   await Account.create({ userId: user._id, balance: 1000 });
   res.send("User Registered");
