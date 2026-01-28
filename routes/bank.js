@@ -15,9 +15,12 @@ const {
   signData
 } = require("../utils/encryption");
 
+
 const { encodeBase64 } = require("../utils/encoding");
 
 const router = express.Router();
+const APPROVAL_LIMIT = 25; // or 20000
+
 
 // View balance
 router.get("/balance", auth, access("VIEW"), async (req, res) => {
@@ -82,6 +85,13 @@ if (receiverAccount.isFrozen) {
   // ✍️ 7️⃣ Digital signature
   const signature = signData(data);
 
+  let status = "SUCCESS";
+
+if (amount > APPROVAL_LIMIT) {
+  status = "INITIATED"; // waiting for admin approval
+}
+
+
   // 💾 8️⃣ Save transaction
   await Transaction.create({
     from: req.user.id,
@@ -90,17 +100,21 @@ if (receiverAccount.isFrozen) {
     encryptedData: encodedData,
     encryptedAESKey,
     signature,
-    status: "SUCCESS"
+    status
   });
 
-  // 💰 9️⃣ Update balances
-  senderAccount.balance -= amount;
-  receiverAccount.balance += amount;
-
-  await senderAccount.save();
-  await receiverAccount.save();
-
-  res.send("Transaction successful and balance updated securely");
+  if (status === "SUCCESS") {
+    senderAccount.balance -= amount;
+    receiverAccount.balance += amount;
+  
+    await senderAccount.save();
+    await receiverAccount.save();
+  
+    return res.send("Transaction successful");
+  }
+  
+  return res.send("Transaction initiated and pending admin approval");
+  
 });
 
 // View user's own transaction history

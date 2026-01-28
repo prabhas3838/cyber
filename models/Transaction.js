@@ -7,7 +7,12 @@ const transactionSchema = new mongoose.Schema({
   amount: Number,
   encryptedData: String,
   encryptedAESKey: String,
-  signature: String
+  signature: String,
+  status: {
+    type: String,
+    enum: ["INITIATED", "APPROVED", "SUCCESS", "FAILED", "REVERSED"],
+    default: "INITIATED"
+  },
 });
 
 module.exports = mongoose.model("Transaction", transactionSchema);

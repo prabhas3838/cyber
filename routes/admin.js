@@ -2,6 +2,8 @@ const express = require("express");
 const auth = require("../middleware/auth");
 const access = require("../middleware/accessControl");
 const Transaction = require("../models/Transaction");
+const Account = require("../models/Account");
+
 
 const {
   decryptAESWithKey,
@@ -52,6 +54,102 @@ router.get(
     });
   }
 );
+
+router.post(
+  "/freeze-account/:userId",
+  auth,
+  access("FREEZE"),
+  async (req, res) => {
+    const account = await Account.findOne({ userId: req.params.userId });
+    if (!account) return res.status(404).send("Account not found");
+
+    account.isFrozen = true;
+    await account.save();
+
+    res.send("Account frozen successfully");
+  }
+);
+
+router.post(
+  "/unfreeze-account/:userId",
+  auth,
+  access("FREEZE"),
+  async (req, res) => {
+    const account = await Account.findOne({ userId: req.params.userId });
+    if (!account) return res.status(404).send("Account not found");
+
+    account.isFrozen = false;
+    await account.save();
+
+    res.send("Account unfrozen successfully");
+  }
+);
+
+router.post(
+  "/approve-transaction/:id",
+  auth,
+  access("APPROVE"),
+  async (req, res) => {
+
+    // 1️⃣ Fetch transaction
+    const tx = await Transaction.findById(req.params.id);
+    if (!tx) return res.status(404).send("Transaction not found");
+
+    // 2️⃣ Only INITIATED transactions can be approved
+    if (tx.status !== "INITIATED") {
+      return res.status(400).send("Transaction not eligible for approval");
+    }
+
+    // 3️⃣ Fetch accounts
+    const senderAccount = await Account.findOne({ userId: tx.from });
+    const receiverAccount = await Account.findOne({ userId: tx.to });
+
+    if (!senderAccount || !receiverAccount) {
+      return res.status(404).send("Account not found");
+    }
+
+    // 4️⃣ Final balance check (IMPORTANT)
+    if (senderAccount.balance < tx.amount) {
+      tx.status = "FAILED";
+      await tx.save();
+      return res.send("Transaction failed due to insufficient balance");
+    }
+
+    // 🔥 5️⃣ DEDUCT MONEY HERE
+    senderAccount.balance -= tx.amount;
+    receiverAccount.balance += tx.amount;
+
+    // 6️⃣ Update status
+    tx.status = "SUCCESS";
+
+    await senderAccount.save();
+    await receiverAccount.save();
+    await tx.save();
+
+    res.send("Transaction approved and amount transferred successfully");
+  }
+);
+
+
+router.post(
+  "/reject-transaction/:id",
+  auth,
+  access("APPROVE"),
+  async (req, res) => {
+
+    const tx = await Transaction.findById(req.params.id);
+    if (!tx || tx.status !== "INITIATED") {
+      return res.status(400).send("Invalid transaction");
+    }
+
+    tx.status = "FAILED";
+    await tx.save();
+
+    res.send("Transaction rejected");
+  }
+);
+
+
 
 
 
