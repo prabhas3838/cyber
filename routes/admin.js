@@ -3,7 +3,7 @@ const auth = require("../middleware/auth");
 const access = require("../middleware/accessControl");
 const Transaction = require("../models/Transaction");
 const Account = require("../models/Account");
-const User=require("../models/User");
+const User = require("../models/User");
 const { logAudit } = require("../utils/auditLogger");
 
 
@@ -22,6 +22,12 @@ const router = express.Router();
 // Simple admin log test
 router.get("/logs", auth, access("LOGS"), (req, res) => {
   res.send("Transaction Logs Accessed");
+});
+
+// List pending transactions
+router.get("/pending-transactions", auth, access("APPROVE"), async (req, res) => {
+  const transactions = await Transaction.find({ status: "INITIATED" }).sort({ createdAt: -1 });
+  res.json(transactions);
 });
 
 // 🔐 Admin verifies & decrypts transaction
@@ -130,7 +136,7 @@ router.post(
       transactionId: tx._id,
       amount: tx.amount
     });
-    
+
 
     await senderAccount.save();
     await receiverAccount.save();
@@ -158,7 +164,7 @@ router.post(
     await logAudit(req, "TRANSACTION_REJECTED", {
       transactionId: tx._id
     });
-    
+
 
     res.send("Transaction rejected");
   }
@@ -178,7 +184,7 @@ router.post(
     if (!user) return res.status(404).send("User not found");
     const bankSignature = signData(req.body.message);
 
-    
+
 
     const encryptedMsg = encryptMessage(
       req.body.message,
