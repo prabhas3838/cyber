@@ -6,7 +6,9 @@ const messageSchema = new mongoose.Schema({
   createdAt: {
     type: Date,
     default: Date.now
-  }
+  },
+  bankSignature: String
+
 });
 
 module.exports = mongoose.model("Message", messageSchema);

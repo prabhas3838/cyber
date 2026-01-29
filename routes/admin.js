@@ -11,7 +11,8 @@ const { logAudit } = require("../utils/auditLogger");
 const {
   decryptAESWithKey,
   decryptAESKey,
-  verifySignature
+  verifySignature,
+  signData
 } = require("../utils/encryption");
 
 const { decodeBase64 } = require("../utils/encoding");
@@ -175,6 +176,9 @@ router.post(
 
     const user = await User.findById(req.params.userId);
     if (!user) return res.status(404).send("User not found");
+    const bankSignature = signData(req.body.message);
+
+    
 
     const encryptedMsg = encryptMessage(
       req.body.message,
@@ -183,7 +187,8 @@ router.post(
 
     await Message.create({
       userId: user._id,
-      encryptedMessage: encryptedMsg
+      encryptedMessage: encryptedMsg,
+      bankSignature
     });
 
     res.send("Secure notification sent");

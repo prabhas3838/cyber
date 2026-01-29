@@ -3,6 +3,7 @@ const auth = require("../middleware/auth");
 const Message = require("../models/Message");
 const User = require("../models/User");
 const { decryptMessage } = require("../utils/messageCrypto");
+const { verifySignature } = require("../utils/encryption");
 
 const router = express.Router();
 
@@ -17,11 +18,33 @@ router.get("/inbox", auth, async (req, res) => {
     // 2️⃣ Fetch encrypted messages
     const messages = await Message.find({ userId: req.user.id });
 
-    // 3️⃣ Decrypt using user's PRIVATE KEY
-    const decryptedMessages = messages.map(msg => ({
-      message: decryptMessage(msg.encryptedMessage, user.privateKey),
-      date: msg.createdAt
-    }));
+    // 3️⃣ Decrypt + verify EACH message
+    const decryptedMessages = messages.map(msg => {
+      const decryptedText = decryptMessage(
+        msg.encryptedMessage,
+        user.privateKey
+      );
+
+      let verified = "Unknown";
+
+  if (msg.bankSignature) {
+    const isValid = verifySignature(
+      decryptedText,
+      msg.bankSignature
+    );
+    verified = isValid ? "From Bank" : "Tampered";
+  } else {
+    verified = "Unsigned (Legacy Message)";
+  }
+
+
+      
+      return {
+        message: decryptedText,
+        verified,
+        date: msg.createdAt
+      };
+    });
 
     res.json(decryptedMessages);
   } catch (err) {
