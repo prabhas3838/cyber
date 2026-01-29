@@ -1,6 +1,8 @@
 const express = require("express");
 const bcrypt = require("bcrypt");
 const crypto = require("crypto");
+const { logAudit } = require("../utils/auditLogger");
+
 
 const Account = require("../models/Account");
 const Transaction = require("../models/Transaction");
@@ -91,6 +93,11 @@ if (amount > APPROVAL_LIMIT) {
   status = "INITIATED"; // waiting for admin approval
 }
 
+await logAudit(req, "TRANSFER_INITIATED", {
+  to,
+  amount
+});
+
 
   // 💾 8️⃣ Save transaction
   await Transaction.create({
@@ -103,7 +110,19 @@ if (amount > APPROVAL_LIMIT) {
     status
   });
 
+  if (status === "INITIATED") {
+    await logAudit(req, "TRANSFER_PENDING_APPROVAL", {
+      amount
+    });
+  }
+  
+
   if (status === "SUCCESS") {
+
+    await logAudit(req, "TRANSFER_SUCCESS", {
+      amount
+    });
+    
     senderAccount.balance -= amount;
     receiverAccount.balance += amount;
   

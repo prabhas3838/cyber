@@ -3,7 +3,9 @@ const auth = require("../middleware/auth");
 const access = require("../middleware/accessControl");
 const Transaction = require("../models/Transaction");
 const Account = require("../models/Account");
-const User=require("../models/User")
+const User=require("../models/User");
+const { logAudit } = require("../utils/auditLogger");
+
 
 
 const {
@@ -123,6 +125,12 @@ router.post(
     // 6️⃣ Update status
     tx.status = "SUCCESS";
 
+    await logAudit(req, "TRANSACTION_APPROVED", {
+      transactionId: tx._id,
+      amount: tx.amount
+    });
+    
+
     await senderAccount.save();
     await receiverAccount.save();
     await tx.save();
@@ -145,6 +153,11 @@ router.post(
 
     tx.status = "FAILED";
     await tx.save();
+
+    await logAudit(req, "TRANSACTION_REJECTED", {
+      transactionId: tx._id
+    });
+    
 
     res.send("Transaction rejected");
   }
@@ -178,6 +191,21 @@ router.post(
 );
 
 
+const AuditLog = require("../models/AuditLog");
+
+router.get(
+  "/audit-logs",
+  auth,
+  access("LOGS"),
+  async (req, res) => {
+
+    const logs = await AuditLog.find()
+      .sort({ createdAt: -1 })
+      .limit(100);
+
+    res.json(logs);
+  }
+);
 
 
 
