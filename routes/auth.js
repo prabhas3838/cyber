@@ -4,6 +4,7 @@ const jwt = require("jsonwebtoken");
 const User = require("../models/User");
 const Account = require("../models/Account");
 const { generateOTP } = require("../utils/otp");
+const { sendOTP } = require("../utils/email");
 const crypto = require("crypto");
 
 const router = express.Router();
@@ -19,6 +20,7 @@ router.post("/register", async (req, res) => {
 
   const user = await User.create({
     username: req.body.username,
+    email: req.body.email,
     password: hash,
     role: req.body.role || "CUSTOMER",
     txnPin: hashedPin,
@@ -41,8 +43,13 @@ router.post("/login", async (req, res) => {
   user.otp = otp;
   await user.save();
 
-  console.log("OTP:", otp); // Simulated OTP
-  res.send("OTP Sent");
+  if (user.email) {
+    await sendOTP(user.email, otp);
+    res.send("OTP Sent to Email");
+  } else {
+    console.log("OTP:", otp); // Fallback for legacy users
+    res.send("OTP Sent (Console)");
+  }
 });
 
 // Verify OTP

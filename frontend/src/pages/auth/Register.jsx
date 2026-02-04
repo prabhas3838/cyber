@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import api from '../../services/api';
 import { useNavigate, Link } from 'react-router-dom';
-import { Lock, User, Key } from 'lucide-react';
+import { Lock, User, Key, Mail } from 'lucide-react';
 
 export default function Register() {
     const navigate = useNavigate();
-    const [form, setForm] = useState({ username: '', password: '', role: 'CUSTOMER', txnPin: '' });
+    const [form, setForm] = useState({ username: '', email: '', password: '', role: 'CUSTOMER', txnPin: '' });
     const [error, setError] = useState('');
 
     const handleSubmit = async (e) => {
@@ -36,6 +36,20 @@ export default function Register() {
                                 style={{ width: '100%', padding: '10px 10px 10px 35px', borderRadius: '0.5rem' }}
                                 value={form.username}
                                 onChange={e => setForm({ ...form, username: e.target.value })}
+                                required
+                            />
+                        </div>
+                    </div>
+                    <div style={{ marginBottom: '1rem' }}>
+                        <label style={{ display: 'block', marginBottom: '0.5rem' }}>Email</label>
+                        <div style={{ position: 'relative' }}>
+                            <Mail size={18} style={{ position: 'absolute', left: '10px', top: '12px', color: '#94a3b8' }} />
+                            <input
+                                type="email"
+                                className="glass-input"
+                                style={{ width: '100%', padding: '10px 10px 10px 35px', borderRadius: '0.5rem' }}
+                                value={form.email}
+                                onChange={e => setForm({ ...form, email: e.target.value })}
                                 required
                             />
                         </div>

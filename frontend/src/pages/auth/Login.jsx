@@ -17,7 +17,7 @@ export default function Login() {
         try {
             if (step === 1) {
                 const res = await login(form.username, form.password);
-                if (res === 'OTP Sent') {
+                if (res.startsWith('OTP Sent')) {
                     setStep(2);
                 } else {
                     setError(res);
@@ -94,7 +94,7 @@ export default function Login() {
                                 required
                             />
                             <p style={{ fontSize: '0.8rem', color: '#94a3b8', marginTop: '0.5rem', textAlign: 'center' }}>
-                                Check your console for the OTP (Simulation)
+                                Check your email (or console) for the OTP
                             </p>
                         </div>
                     )}
