@@ -54,14 +54,14 @@ router.post("/transfer", auth, access("TRANSFER"), async (req, res) => {
   }
 
   // Check if sender account is frozen
-if (senderAccount.isFrozen) {
-  return res.status(403).send("Your account is frozen. Contact bank admin.");
-}
+  if (senderAccount.isFrozen) {
+    return res.status(403).send("Your account is frozen. Contact bank admin.");
+  }
 
-// Check if receiver account is frozen
-if (receiverAccount.isFrozen) {
-  return res.status(403).send("Receiver account is frozen.");
-}
+  // Check if receiver account is frozen
+  if (receiverAccount.isFrozen) {
+    return res.status(403).send("Receiver account is frozen.");
+  }
 
 
   // 2️⃣ Check balance
@@ -91,18 +91,12 @@ if (receiverAccount.isFrozen) {
 
   let status = "SUCCESS";
 
-if (amount > APPROVAL_LIMIT) {
-  status = "INITIATED"; // waiting for admin approval
-}
-
-await logAudit(req, "TRANSFER_INITIATED", {
-  to,
-  amount
-});
-
+  if (amount > APPROVAL_LIMIT) {
+    status = "INITIATED"; // waiting for admin approval
+  }
 
   // 💾 8️⃣ Save transaction
-  await Transaction.create({
+  const tx = await Transaction.create({
     from: req.user.id,
     to,
     amount,
@@ -112,30 +106,39 @@ await logAudit(req, "TRANSFER_INITIATED", {
     status
   });
 
+  await logAudit(req, "TRANSFER_INITIATED", {
+    transactionId: tx._id.toString(),
+    to,
+    amount
+  });
+
   if (status === "INITIATED") {
+    console.log("📝 Logging PENDING_APPROVAL for TX:", tx._id.toString());
     await logAudit(req, "TRANSFER_PENDING_APPROVAL", {
+      transactionId: tx._id.toString(),
       amount
     });
   }
-  
+
 
   if (status === "SUCCESS") {
 
     await logAudit(req, "TRANSFER_SUCCESS", {
+      transactionId: tx._id.toString(),
       amount
     });
-    
+
     senderAccount.balance -= amount;
     receiverAccount.balance += amount;
-  
+
     await senderAccount.save();
     await receiverAccount.save();
-  
+
     return res.send("Transaction successful");
   }
-  
+
   return res.send("Transaction initiated and pending admin approval");
-  
+
 });
 
 // View user's own transaction history
@@ -150,7 +153,7 @@ router.get("/history", auth, async (req, res) => {
     id: tx._id,
     type: tx.from.toString() === userId ? "DEBIT" : "CREDIT",
     amount: tx.amount,
-    date: tx.createdAt,
+    date: tx.createdAt || tx._id.getTimestamp(),
     status: tx.status
   }));
 

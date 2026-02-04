@@ -4,6 +4,7 @@ import Login from './pages/auth/Login';
 import Register from './pages/auth/Register';
 import Dashboard from './pages/user/Dashboard';
 import AdminDashboard from './pages/admin/AdminDashboard';
+import AuditorDashboard from './pages/auditor/AuditorDashboard';
 import Transfer from './pages/user/Transfer';
 import History from './pages/user/History';
 import Inbox from './pages/user/Inbox';
@@ -50,6 +51,13 @@ function AppRoutes() {
             <Route path="/admin" element={
                 <ProtectedRoute role="ADMIN">
                     <AdminDashboard />
+                </ProtectedRoute>
+            } />
+
+            {/* Auditor Routes */}
+            <Route path="/auditor" element={
+                <ProtectedRoute role="AUDITOR">
+                    <AuditorDashboard />
                 </ProtectedRoute>
             } />
 

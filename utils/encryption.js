@@ -4,10 +4,39 @@ const crypto = require("crypto");
 const AES_KEY = Buffer.from(process.env.AES_KEY, "hex");
 const IV = Buffer.from(process.env.AES_IV, "hex");
 
-// ===== RSA KEYS (demo) =====
-const { publicKey, privateKey } = crypto.generateKeyPairSync("rsa", {
-  modulusLength: 2048
-});
+const fs = require('fs');
+const path = require('path');
+
+const PRIVATE_KEY_PATH = path.join(__dirname, 'private.pem');
+const PUBLIC_KEY_PATH = path.join(__dirname, 'public.pem');
+
+let publicKey, privateKey;
+
+if (fs.existsSync(PRIVATE_KEY_PATH) && fs.existsSync(PUBLIC_KEY_PATH)) {
+  // Load existing keys
+  privateKey = fs.readFileSync(PRIVATE_KEY_PATH, 'utf8');
+  publicKey = fs.readFileSync(PUBLIC_KEY_PATH, 'utf8');
+} else {
+  // Generate new keys
+  const keys = crypto.generateKeyPairSync("rsa", {
+    modulusLength: 2048,
+    publicKeyEncoding: {
+      type: 'spki',
+      format: 'pem'
+    },
+    privateKeyEncoding: {
+      type: 'pkcs8',
+      format: 'pem'
+    }
+  });
+
+  publicKey = keys.publicKey;
+  privateKey = keys.privateKey;
+
+  // Save keys
+  fs.writeFileSync(PRIVATE_KEY_PATH, privateKey);
+  fs.writeFileSync(PUBLIC_KEY_PATH, publicKey);
+}
 
 // ===== GLOBAL AES FUNCTIONS =====
 exports.encryptAES = (text) => {

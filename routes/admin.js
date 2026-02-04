@@ -24,6 +24,12 @@ router.get("/logs", auth, access("LOGS"), (req, res) => {
   res.send("Transaction Logs Accessed");
 });
 
+// View ALL transactions (Auditor/Admin)
+router.get("/all-transactions", auth, access("LOGS"), async (req, res) => {
+  const transactions = await Transaction.find().sort({ createdAt: -1 }).limit(100);
+  res.json(transactions);
+});
+
 // List pending transactions
 router.get("/pending-transactions", auth, access("APPROVE"), async (req, res) => {
   const transactions = await Transaction.find({ status: "INITIATED" }).sort({ createdAt: -1 });
@@ -37,31 +43,57 @@ router.get(
   access("LOGS"), // ADMIN / AUDITOR
   async (req, res) => {
 
-    // 1️⃣ Fetch transaction
-    const transaction = await Transaction.findById(req.params.id);
-    if (!transaction) {
-      return res.status(404).send("Transaction not found");
+    try {
+      // 1️⃣ Fetch transaction
+      const transaction = await Transaction.findById(req.params.id);
+      if (!transaction) {
+        return res.status(404).send("Transaction not found");
+      }
+
+      // 2️⃣ Check validation fields presence FIRST
+      if (!transaction.encryptedData || !transaction.encryptedAESKey || !transaction.signature) {
+        return res.json({
+          decryptedTransaction: null,
+          integrity: "Tampered",
+          diagnostics: {
+            encryptedDataPresent: !!transaction.encryptedData,
+            encryptedAESKeyPresent: !!transaction.encryptedAESKey,
+            signaturePresent: !!transaction.signature
+          }
+        });
+      }
+
+      // 3️⃣ Decode Base64 encrypted payload
+      const decodedEncryptedData = decodeBase64(transaction.encryptedData);
+
+      // 4️⃣ Decrypt AES key using RSA private key
+      const aesKey = decryptAESKey(transaction.encryptedAESKey);
+
+      // 5️⃣ Decrypt transaction data using decrypted AES key
+      const decryptedData = decryptAESWithKey(
+        decodedEncryptedData,
+        aesKey
+      );
+
+      // 5️⃣ Verify digital signature
+      const valid = verifySignature(decryptedData, transaction.signature);
+
+      res.json({
+        decryptedTransaction: JSON.parse(decryptedData),
+        integrity: valid ? "Verified" : "Tampered",
+        diagnostics: {
+          encryptedDataPresent: !!transaction.encryptedData,
+          encryptedAESKeyPresent: !!transaction.encryptedAESKey,
+          signaturePresent: !!transaction.signature
+        }
+      });
+    } catch (err) {
+      console.error("Verification error:", err);
+      if (err.name === 'CastError') {
+        return res.status(400).send("Invalid Transaction ID format");
+      }
+      res.status(500).send("Verification failed: " + err.message);
     }
-
-    // 2️⃣ Decode Base64 encrypted payload
-    const decodedEncryptedData = decodeBase64(transaction.encryptedData);
-
-    // 3️⃣ Decrypt AES key using RSA private key
-    const aesKey = decryptAESKey(transaction.encryptedAESKey);
-
-    // 4️⃣ Decrypt transaction data using decrypted AES key
-    const decryptedData = decryptAESWithKey(
-      decodedEncryptedData,
-      aesKey
-    );
-
-    // 5️⃣ Verify digital signature
-    const valid = verifySignature(decryptedData, transaction.signature);
-
-    res.json({
-      decryptedTransaction: JSON.parse(decryptedData),
-      integrity: valid ? "Verified" : "Tampered"
-    });
   }
 );
 

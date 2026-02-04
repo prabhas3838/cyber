@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
-import { Shield, Check, X, AlertTriangle, Bell, UserX, Unlock } from 'lucide-react';
+import { Shield, Check, X, AlertTriangle, Bell, UserX, Unlock, Search, CheckCircle } from 'lucide-react';
 
 export default function AdminDashboard() {
     const { user } = useAuth();
@@ -10,6 +10,8 @@ export default function AdminDashboard() {
     const [msgUserId, setMsgUserId] = useState('');
     const [msgContent, setMsgContent] = useState('');
     const [freezeUserId, setFreezeUserId] = useState('');
+    const [verifyId, setVerifyId] = useState('');
+    const [verifyResult, setVerifyResult] = useState(null);
 
     const fetchData = () => {
         api.get('/admin/pending-transactions').then(res => setPending(res.data)).catch(console.error);
@@ -62,6 +64,17 @@ export default function AdminDashboard() {
             alert('Failed to send');
         }
     }
+
+    const handleVerify = async () => {
+        try {
+            const res = await api.get(`/admin/transaction/${verifyId}`);
+            setVerifyResult(res.data);
+        } catch (err) {
+            console.error("Verification failed:", err);
+            const errorMessage = err.response?.data || err.message || 'Transaction not found or access denied';
+            setVerifyResult({ error: errorMessage });
+        }
+    };
 
     return (
         <div className="layout-container">
@@ -142,6 +155,74 @@ export default function AdminDashboard() {
                     </div>
                 </div>
 
+                {/* Transaction Integrity Check */}
+                <div className="card">
+                    <h2 style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <CheckCircle color="var(--success)" /> Integrity Check
+                    </h2>
+                    <p style={{ marginBottom: '1rem', color: 'var(--text-muted)' }}>
+                        Cryptographically verify any transaction.
+                    </p>
+                    <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
+                        <input
+                            className="glass-input"
+                            placeholder="Transaction ID"
+                            style={{ flex: 1, padding: '0.5rem', borderRadius: '0.5rem' }}
+                            value={verifyId}
+                            onChange={(e) => setVerifyId(e.target.value)}
+                        />
+                        <button onClick={handleVerify} className="btn-primary">
+                            <Search size={16} />
+                        </button>
+                    </div>
+
+                    {verifyResult && (
+                        <div style={{
+                            padding: '1rem',
+                            borderRadius: '0.5rem',
+                            background: verifyResult.error ? 'rgba(239, 68, 68, 0.1)' : 'rgba(16, 185, 129, 0.1)',
+                            border: `1px solid ${verifyResult.error ? 'var(--danger)' : 'var(--success)'}`
+                        }}>
+                            {verifyResult.error ? (
+                                <p style={{ color: 'var(--danger)' }}>{verifyResult.error}</p>
+                            ) : (
+                                <div>
+                                    <h3 style={{ color: 'var(--success)', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1rem' }}>
+                                        <CheckCircle size={16} /> {verifyResult.integrity}
+                                    </h3>
+
+                                    {verifyResult.diagnostics && (
+                                        <div style={{ marginBottom: '0.5rem', fontSize: '0.8rem' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                                <span>Data:</span>
+                                                <span style={{ color: verifyResult.diagnostics.encryptedDataPresent ? 'var(--success)' : 'var(--danger)' }}>
+                                                    {verifyResult.diagnostics.encryptedDataPresent ? 'OK' : 'MISSING'}
+                                                </span>
+                                            </div>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                                <span>Key:</span>
+                                                <span style={{ color: verifyResult.diagnostics.encryptedAESKeyPresent ? 'var(--success)' : 'var(--danger)' }}>
+                                                    {verifyResult.diagnostics.encryptedAESKeyPresent ? 'OK' : 'MISSING'}
+                                                </span>
+                                            </div>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                                <span>Sig:</span>
+                                                <span style={{ color: verifyResult.diagnostics.signaturePresent ? 'var(--success)' : 'var(--danger)' }}>
+                                                    {verifyResult.diagnostics.signaturePresent ? 'OK' : 'MISSING'}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    <pre style={{ background: 'rgba(0,0,0,0.3)', padding: '0.5rem', borderRadius: '0.25rem', overflowX: 'auto', fontSize: '0.8rem' }}>
+                                        {JSON.stringify(verifyResult.decryptedTransaction, null, 2)}
+                                    </pre>
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </div>
+
             </div>
 
             {/* Audit Logs */}
@@ -153,6 +234,7 @@ export default function AdminDashboard() {
                             <tr style={{ textAlign: 'left', color: 'var(--text-muted)' }}>
                                 <th style={{ padding: '0.5rem' }}>Action</th>
                                 <th style={{ padding: '0.5rem' }}>User</th>
+                                <th style={{ padding: '0.5rem' }}>Transaction ID</th>
                                 <th style={{ padding: '0.5rem' }}>Time</th>
                             </tr>
                         </thead>
@@ -161,7 +243,10 @@ export default function AdminDashboard() {
                                 <tr key={log._id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
                                     <td style={{ padding: '0.5rem' }}>{log.action}</td>
                                     <td style={{ padding: '0.5rem' }}>{log.userId}</td>
-                                    <td style={{ padding: '0.5rem', color: 'var(--text-muted)' }}>{new Date(log.timestamp).toLocaleString()}</td>
+                                    <td style={{ padding: '0.5rem', fontFamily: 'monospace', color: 'var(--accent)' }}>
+                                        {log.details?.transactionId || '-'}
+                                    </td>
+                                    <td style={{ padding: '0.5rem', color: 'var(--text-muted)' }}>{new Date(log.createdAt).toLocaleString()}</td>
                                 </tr>
                             ))}
                         </tbody>
