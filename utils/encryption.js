@@ -1,8 +1,19 @@
 const crypto = require("crypto");
 
 // ===== GLOBAL AES (optional / legacy) =====
-const AES_KEY = Buffer.from(process.env.AES_KEY, "hex");
-const IV = Buffer.from(process.env.AES_IV, "hex");
+// ===== GLOBAL AES (optional / legacy) =====
+let AES_KEY, IV;
+
+const loadKeys = () => {
+  if (!process.env.AES_KEY || !process.env.AES_IV) {
+    // Allow graceful failure if env vars not ready (e.g. during script init)
+    return;
+  }
+  AES_KEY = Buffer.from(process.env.AES_KEY, "hex");
+  IV = Buffer.from(process.env.AES_IV, "hex");
+};
+loadKeys(); // Try loading initially
+
 
 const fs = require('fs');
 const path = require('path');
@@ -40,6 +51,7 @@ if (fs.existsSync(PRIVATE_KEY_PATH) && fs.existsSync(PUBLIC_KEY_PATH)) {
 
 // ===== GLOBAL AES FUNCTIONS =====
 exports.encryptAES = (text) => {
+  if (!AES_KEY) loadKeys();
   const cipher = crypto.createCipheriv("aes-256-cbc", AES_KEY, IV);
   let encrypted = cipher.update(text, "utf8", "hex");
   encrypted += cipher.final("hex");
@@ -47,6 +59,7 @@ exports.encryptAES = (text) => {
 };
 
 exports.decryptAES = (encrypted) => {
+  if (!AES_KEY) loadKeys();
   const decipher = crypto.createDecipheriv("aes-256-cbc", AES_KEY, IV);
   let decrypted = decipher.update(encrypted, "hex", "utf8");
   decrypted += decipher.final("utf8");
@@ -69,17 +82,17 @@ exports.decryptAESWithKey = (encrypted, aesKey) => {
 };
 
 // ===== DIGITAL SIGNATURE =====
-exports.signData = (data) => {
+exports.signData = (data, key = privateKey) => {
   const hash = crypto.createHash("sha256").update(data).digest();
-  return crypto.sign("SHA256", hash, privateKey).toString("hex");
+  return crypto.sign("SHA256", hash, key).toString("hex");
 };
 
-exports.verifySignature = (data, signature) => {
+exports.verifySignature = (data, signature, key = publicKey) => {
   const hash = crypto.createHash("sha256").update(data).digest();
   return crypto.verify(
     "SHA256",
     hash,
-    publicKey,
+    key,
     Buffer.from(signature, "hex")
   );
 };

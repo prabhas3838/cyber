@@ -3,7 +3,7 @@ const auth = require("../middleware/auth");
 const Message = require("../models/Message");
 const User = require("../models/User");
 const { decryptMessage } = require("../utils/messageCrypto");
-const { verifySignature } = require("../utils/encryption");
+const { verifySignature, decryptAES } = require("../utils/encryption");
 
 const router = express.Router();
 
@@ -20,30 +20,45 @@ router.get("/inbox", auth, async (req, res) => {
 
     // 3️⃣ Decrypt + verify EACH message
     const decryptedMessages = messages.map(msg => {
-      const decryptedText = decryptMessage(
-        msg.encryptedMessage,
-        user.privateKey
-      );
+      // Unlock Private Key
+      let privateKey = user.privateKey;
+      if (!privateKey.includes("-----BEGIN")) {
+        try {
+          privateKey = decryptAES(privateKey);
+        } catch (e) {
+          console.error("Private Key Decryption Failed", e);
+          return { message: "Error: Could not unlock private key", verified: "Error", date: msg.createdAt };
+        }
+      }
 
-      let verified = "Unknown";
+      try {
+        const decryptedText = decryptMessage(
+          msg.encryptedMessage,
+          privateKey
+        );
 
-  if (msg.bankSignature) {
-    const isValid = verifySignature(
-      decryptedText,
-      msg.bankSignature
-    );
-    verified = isValid ? "From Bank" : "Tampered";
-  } else {
-    verified = "Unsigned (Legacy Message)";
-  }
+        let verified = "Unknown";
+
+        if (msg.bankSignature) {
+          const isValid = verifySignature(
+            decryptedText,
+            msg.bankSignature
+          );
+          verified = isValid ? "From Bank" : "Tampered";
+        } else {
+          verified = "Unsigned (Legacy Message)";
+        }
 
 
-      
-      return {
-        message: decryptedText,
-        verified,
-        date: msg.createdAt
-      };
+
+        return {
+          message: decryptedText,
+          verified,
+          date: msg.createdAt
+        };
+      } catch (err) {
+        return { message: "Decryption Failed", verified: "Error", date: msg.createdAt };
+      }
     });
 
     res.json(decryptedMessages);

@@ -1,37 +1,48 @@
 :root {
-  /* Premium Dark Theme Palette */
-  --bg-dark: #0f172a;
-  --bg-card: rgba(30, 41, 59, 0.7);
-  --primary: #6366f1;
-  /* Indigo */
-  --primary-glow: rgba(99, 102, 241, 0.5);
-  --accent: #ec4899;
-  /* Pink/Rose */
-  --text-main: #f8fafc;
-  --text-muted: #94a3b8;
-  --border: rgba(148, 163, 184, 0.1);
-  --glass-border: rgba(255, 255, 255, 0.1);
+  /* Cyber-Secure Theme Palette */
+  --bg-dark: #02040a;
+  /* Deepest Navy */
+  --bg-card: rgba(10, 15, 30, 0.75);
+  /* Darker Glass */
+  --primary: #00f3ff;
+  /* Electric Cyan */
+  --primary-glow: rgba(0, 243, 255, 0.4);
+  --accent: #bf00ff;
+  /* Neon Purple */
+  --text-main: #e2e8f0;
+  --text-muted: #64748b;
+  --border: rgba(0, 243, 255, 0.2);
+  --glass-border: rgba(0, 243, 255, 0.15);
 
   /* Status Colors */
-  --success: #10b981;
-  --warning: #f59e0b;
-  --danger: #ef4444;
+  --success: #00ff9d;
+  --warning: #ffb700;
+  --danger: #ff0055;
 
   /* Shadows */
-  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  --shadow-sm: 0 0 10px rgba(0, 243, 255, 0.1);
+  --shadow-lg: 0 0 25px rgba(0, 243, 255, 0.15);
   --glow: 0 0 20px var(--primary-glow);
 }
 
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
 body {
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: 'Outfit', 'Inter', system-ui, sans-serif;
+  /* Try access to Outfit if available, fallback to Inter */
   background-color: var(--bg-dark);
   color: var(--text-main);
   line-height: 1.5;
   min-height: 100vh;
   background-image:
-    radial-gradient(circle at 10% 20%, rgba(99, 102, 241, 0.1) 0%, transparent 40%),
-    radial-gradient(circle at 90% 80%, rgba(236, 72, 153, 0.1) 0%, transparent 40%);
+    linear-gradient(rgba(2, 4, 10, 0.9), rgba(2, 4, 10, 0.95)),
+    repeating-linear-gradient(0deg, transparent, transparent 1px, rgba(0, 243, 255, 0.03) 1px, rgba(0, 243, 255, 0.03) 2px),
+    radial-gradient(circle at 50% 0%, rgba(191, 0, 255, 0.15), transparent 70%);
+  background-attachment: fixed;
 }
 
 #root {

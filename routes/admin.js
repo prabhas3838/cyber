@@ -75,8 +75,10 @@ router.get(
         aesKey
       );
 
-      // 5️⃣ Verify digital signature
-      const valid = verifySignature(decryptedData, transaction.signature);
+      // 5️⃣ Verify digital signature (Using Sender's Public Key)
+      const sender = await User.findById(transaction.from);
+      const publicKey = sender ? sender.publicKey : null; // Handle case if user deleted, though unlikely in banking
+      const valid = publicKey ? verifySignature(decryptedData, transaction.signature, publicKey) : false;
 
       res.json({
         decryptedTransaction: JSON.parse(decryptedData),

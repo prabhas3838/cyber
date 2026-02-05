@@ -14,7 +14,8 @@ const access = require("../middleware/accessControl");
 const {
   encryptAESWithKey,
   encryptAESKey,
-  signData
+  signData,
+  decryptAES
 } = require("../utils/encryption");
 
 
@@ -86,8 +87,19 @@ router.post("/transfer", auth, access("TRANSFER"), async (req, res) => {
   // 🔐 6️⃣ Encrypt AES key using RSA
   const encryptedAESKey = encryptAESKey(aesKey);
 
-  // ✍️ 7️⃣ Digital signature
-  const signature = signData(data);
+  // ✍️ 7️⃣ Digital signature (Signed by User)
+  let signingKey = user.privateKey;
+
+  // Try to decrypt if it doesn't look like a PEM (which starts with -----BEGIN)
+  if (!signingKey.includes("-----BEGIN")) {
+    try {
+      signingKey = decryptAES(signingKey);
+    } catch (err) {
+      console.error("Failed to decrypt private key, assuming legacy plaintext or corruption", err);
+    }
+  }
+
+  const signature = signData(data, signingKey);
 
   let status = "SUCCESS";
 

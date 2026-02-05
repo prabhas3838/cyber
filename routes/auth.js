@@ -5,6 +5,7 @@ const User = require("../models/User");
 const Account = require("../models/Account");
 const { generateOTP } = require("../utils/otp");
 const { sendOTP } = require("../utils/email");
+const { encryptAES } = require("../utils/encryption");
 const crypto = require("crypto");
 
 const router = express.Router();
@@ -25,7 +26,7 @@ router.post("/register", async (req, res) => {
     role: req.body.role || "CUSTOMER",
     txnPin: hashedPin,
     publicKey: publicKey.export({ type: "pkcs1", format: "pem" }),
-    privateKey: privateKey.export({ type: "pkcs1", format: "pem" })
+    privateKey: encryptAES(privateKey.export({ type: "pkcs1", format: "pem" }))
   });
   await Account.create({ userId: user._id, balance: 1000 });
   res.send("User Registered");
